@@ -2,7 +2,7 @@
 // phone in airplane mode. User data never touches this cache — that lives in
 // IndexedDB.
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const CACHE = `werks-invoice-${VERSION}`;
 
 const PRECACHE = [
@@ -20,6 +20,7 @@ const PRECACHE = [
   './js/backup.js',
   './js/charts.js',
   './js/ac.js',
+  './js/theme.js',
   './js/views/list.js',
   './js/views/editor.js',
   './js/views/detail.js',
