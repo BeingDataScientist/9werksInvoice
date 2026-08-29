@@ -89,14 +89,17 @@ export { wrap as request };
 /* ---------------- settings ---------------- */
 
 export const DEFAULT_SETTINGS = {
+  // Deliberately blank: the shop fills these in under Settings, so no one's
+  // business details are baked into the app.
   business: {
-    name: '9WERKS',
-    tagline: 'A CREW FOR YOUR LUXE RIDE',
-    address: 'S No.259/3, Shatik Park, behind seasons business square, sanewadi, Aundh, Pune, 411067',
-    mobile: '7083199986',
-    office: '9088969999',
-    instagram: '9werksofficial',
-    terms: 'Received the Vehicle in Proper Condition. The Completed Services, Spare Parts and Charges are Verified and Accepted.',
+    name: '',
+    tagline: '',
+    address: '',
+    mobile: '',
+    office: '',
+    instagram: '',
+    terms: 'Received in good condition. The services, goods and charges above are verified and accepted.',
+    logo: null, // { dataUrl, width, height, format } — see js/logo.js
   },
   challan: {
     prefix: '',        // supports {FY} {YY} {YYYY} {MM} tokens

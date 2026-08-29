@@ -1,7 +1,7 @@
 {
-  "name": "9WERKS Invoice",
-  "short_name": "9WERKS",
-  "description": "Offline challan & invoice book for 9WERKS - create, edit, audit and analyse job cards on your phone.",
+  "name": "Challan Book",
+  "short_name": "Challans",
+  "description": "Offline challan and invoice book - create, edit, audit and analyse job cards on your phone. All data stays on the device.",
   "id": "/9werksInvoice/",
   "start_url": ".",
   "scope": ".",

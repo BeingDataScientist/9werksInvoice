@@ -12,14 +12,23 @@ import { attachAutocomplete, partyOption, productOption, vehicleOption } from '.
 import { savePdf } from '../pdf.js';
 import { EVENT } from '../audit.js';
 import {
-  confirmDialog, debounce, esc, fmtMoney, html, num, raw, round2, toast,
+  confirmDialog, debounce, esc, fmtMoney, html, num, raw, round2, toast, todayISO,
 } from '../util.js';
+import { attachField, focusInvalid, RULES, validateAll } from '../validate.js';
 
-const PAY_MODES = ['Cash', 'Cheque', 'RTGS', 'Online'];
+// The printed challan boxes one payment mode and one status, so both are
+// single-choice radio groups here too.
+const PAY_MODES = [
+  { value: '', label: 'Not set' },
+  { value: 'Cash', label: 'Cash' },
+  { value: 'Cheque', label: 'Cheque' },
+  { value: 'RTGS', label: 'RTGS' },
+  { value: 'Online', label: 'Online' },
+];
 const PAY_STATUS = [
-  { key: 'unpaid', label: 'Unpaid' },
-  { key: 'partial', label: 'Part paid' },
-  { key: 'paid', label: 'Paid' },
+  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'partial', label: 'Part paid' },
+  { value: 'paid', label: 'Paid' },
 ];
 
 const ISSUE_ICON = {
@@ -29,6 +38,28 @@ const ISSUE_ICON = {
 };
 
 const TRASH = '<path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/>';
+
+function radioSet({ name, label, options, value }) {
+  return html`
+    <div class="field">
+      <span class="field__label" id="${name}-label">${label}</span>
+      <div class="radio-set radio-set--grid" data-radio="${name}" role="radiogroup" aria-labelledby="${name}-label">
+        ${raw(options.map((o) => `
+          <label class="radio ${o.value === value ? 'is-on' : ''}">
+            <input type="radio" name="${esc(name)}" value="${esc(o.value)}" ${o.value === value ? 'checked' : ''}>
+            <span class="radio__box" aria-hidden="true"></span>
+            <span class="radio__label">${esc(o.label)}</span>
+          </label>`).join(''))}
+      </div>
+    </div>`;
+}
+
+const ROW_RULES = {
+  desc: RULES.particulars,
+  qty: RULES.quantity,
+  rate: RULES.money,
+  amount: RULES.money,
+};
 
 function itemRowHtml(item, index) {
   return html`
@@ -97,6 +128,9 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
   });
 
   const cur = settings.ui.currency;
+  // Whatever day the screen was opened on — the date field defaults to it and
+  // will not go past it.
+  const today = todayISO();
 
   root.innerHTML = html`
     <form class="stack" id="ed" novalidate autocomplete="off">
@@ -110,7 +144,9 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
           </div>
           <div class="field">
             <label for="f-date">Date</label>
-            <input id="f-date" class="input" type="date" value="${draft.date}">
+            <input id="f-date" class="input" type="date" value="${draft.date}" max="${today}"
+                   required>
+            <span class="field__hint">Opens on today's date.</span>
           </div>
         </div>
         <div id="challan-issues"></div>
@@ -184,28 +220,16 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
             </div>
             <div class="field">
               <label for="f-tax">Tax %</label>
-              <input id="f-tax" class="input input--num" inputmode="decimal" value="${draft.taxPercent || ''}" placeholder="0">
+              <input id="f-tax" class="input input--num" inputmode="decimal" value="${draft.taxPercent || ''}"
+                     placeholder="0" maxlength="6">
             </div>
             <div class="field">
               <label for="f-advance">Advance</label>
               <input id="f-advance" class="input input--num" inputmode="decimal" value="${draft.advance || ''}" placeholder="0">
             </div>
           </div>
-          <div class="field">
-            <span class="field__label">Payment mode</span>
-            <div class="segmented" id="pay-mode" role="group" aria-label="Payment mode">
-              <button type="button" data-mode="" class="${draft.paymentMode ? '' : 'is-active'}">None</button>
-              ${raw(PAY_MODES.map((m) => `<button type="button" data-mode="${m}"
-                class="${draft.paymentMode === m ? 'is-active' : ''}">${esc(m)}</button>`).join(''))}
-            </div>
-          </div>
-          <div class="field">
-            <span class="field__label">Status</span>
-            <div class="segmented" id="pay-status" role="group" aria-label="Payment status">
-              ${raw(PAY_STATUS.map((s) => `<button type="button" data-status="${s.key}"
-                class="${draft.paymentStatus === s.key ? 'is-active' : ''}">${esc(s.label)}</button>`).join(''))}
-            </div>
-          </div>
+          ${raw(radioSet({ name: 'pay-mode', label: 'Payment mode', options: PAY_MODES, value: draft.paymentMode || '' }))}
+          ${raw(radioSet({ name: 'pay-status', label: 'Status', options: PAY_STATUS, value: draft.paymentStatus || 'unpaid' }))}
           <div class="field">
             <label for="f-notes">Notes</label>
             <textarea id="f-notes" class="textarea" placeholder="Anything to remember about this job">${draft.notes}</textarea>
@@ -266,9 +290,13 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
     });
   };
 
+  // Series checks (duplicates, gaps) are separate from the format rule on the
+  // field itself, so this must not stamp over what the field rule decided.
+  let challanField = null;
   const validate = debounce(async () => {
     const res = await checkChallan(draft.challanNo, { currentId: draft.id, dateISO: draft.date });
-    $('#f-challan').setAttribute('aria-invalid', String(!res.ok));
+    if (!res.ok) $('#f-challan').setAttribute('aria-invalid', 'true');
+    else challanField?.validate();
     paintIssues(res.issues);
   }, 220);
 
@@ -286,6 +314,10 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
     const item = () => draft.items.find((i) => i.id === id);
 
     rowEl.querySelectorAll('[data-f]').forEach((input) => {
+      // Attached first so the value is already sanitised by the time the
+      // handler below reads it — a rate field never holds letters.
+      input._field = attachField(input, ROW_RULES[input.dataset.f], { inline: false });
+
       input.addEventListener('input', () => {
         const it = item();
         if (!it) return;
@@ -389,28 +421,43 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
 
   /* ---------- plain fields ---------- */
 
-  const bind = (sel, apply, { revalidate = false } = {}) => {
-    const node = $(sel);
-    node.addEventListener('input', () => {
-      apply(node.value);
-      markDirty();
-      paintTotals();
-      if (revalidate) validate();
+  const fields = [];
+  const bind = (sel, rule, apply, { revalidate = false } = {}) => {
+    const handle = attachField($(sel), rule, {
+      onInput: (value) => {
+        apply(value);
+        markDirty();
+        paintTotals();
+        if (revalidate) validate();
+      },
     });
+    fields.push(handle);
+    return handle;
   };
 
-  bind('#f-challan', (v) => { draft.challanNo = v; }, { revalidate: true });
-  bind('#f-date', (v) => { draft.date = v; }, { revalidate: true });
-  bind('#f-cname', (v) => { draft.customer.name = v; });
-  bind('#f-caddr', (v) => { draft.customer.address = v; });
-  bind('#f-cphone', (v) => { draft.customer.phone = v; });
-  bind('#f-vreg', (v) => { draft.vehicle.regNo = v; });
-  bind('#f-vmodel', (v) => { draft.vehicle.model = v; });
-  bind('#f-vkm', (v) => { draft.vehicle.km = v; });
-  bind('#f-discount', (v) => { draft.discount = v; });
-  bind('#f-tax', (v) => { draft.taxPercent = v; });
-  bind('#f-advance', (v) => { draft.advance = v; });
-  bind('#f-notes', (v) => { draft.notes = v; });
+  challanField = bind('#f-challan', RULES.challanNo, (v) => { draft.challanNo = v; }, { revalidate: true });
+  bind('#f-date', RULES.date, (v) => { draft.date = v; }, { revalidate: true });
+  bind('#f-cname', RULES.customerName, (v) => { draft.customer.name = v; });
+  bind('#f-caddr', RULES.address, (v) => { draft.customer.address = v; });
+  bind('#f-cphone', RULES.phone, (v) => { draft.customer.phone = v; });
+  bind('#f-vreg', RULES.regNo, (v) => { draft.vehicle.regNo = v; });
+  bind('#f-vmodel', RULES.vehicleModel, (v) => { draft.vehicle.model = v; });
+  bind('#f-vkm', RULES.km, (v) => { draft.vehicle.km = v; });
+  bind('#f-discount', RULES.money, (v) => { draft.discount = v; });
+  bind('#f-tax', RULES.percent, (v) => { draft.taxPercent = v; });
+  bind('#f-advance', RULES.money, (v) => { draft.advance = v; });
+  bind('#f-notes', RULES.text, (v) => { draft.notes = v; });
+
+  // An emptied date snaps back to the day the screen was opened, so a challan
+  // can never be saved without one.
+  const dateEl = $('#f-date');
+  dateEl.addEventListener('change', () => {
+    if (dateEl.value) return;
+    dateEl.value = today;
+    draft.date = today;
+    markDirty();
+    validate();
+  });
 
   attachAutocomplete($('#f-cname'), {
     fetch: (q) => suggestParties(q, 6),
@@ -435,21 +482,45 @@ export async function render(root, { params, settings, navigate, setTopbar, setG
   attachAutocomplete($('#f-vreg'), { fetch: (q) => suggestVehicles(q, 6), renderOption: vehicleOption, onPick: pickVehicle });
   attachAutocomplete($('#f-vmodel'), { fetch: (q) => suggestVehicles(q, 6), renderOption: vehicleOption, onPick: pickVehicle });
 
-  const segmented = (sel, attr, apply) => {
-    $(sel).addEventListener('click', (e) => {
-      const btn = e.target.closest(`[data-${attr}]`);
-      if (!btn) return;
-      $(sel).querySelectorAll(`[data-${attr}]`).forEach((b) => b.classList.toggle('is-active', b === btn));
-      apply(btn.dataset[attr]);
+  // `is-on` mirrors :checked onto the label so the box can be styled without
+  // relying on :has() being available.
+  const radios = (name, apply) => {
+    const group = root.querySelector(`[data-radio="${name}"]`);
+    group.addEventListener('change', (e) => {
+      const picked = e.target.closest('input[type="radio"]');
+      if (!picked) return;
+      group.querySelectorAll('.radio').forEach((l) => l.classList.toggle('is-on', l.contains(picked)));
+      apply(picked.value);
       markDirty();
     });
   };
-  segmented('#pay-mode', 'mode', (v) => { draft.paymentMode = v; });
-  segmented('#pay-status', 'status', (v) => { draft.paymentStatus = v; });
+  radios('pay-mode', (v) => { draft.paymentMode = v; });
+  radios('pay-status', (v) => { draft.paymentStatus = v; });
 
   /* ---------- save ---------- */
 
+  /**
+   * Everything the form itself can catch, before the repo is asked to save.
+   * Returns false and parks the cursor on the offending field.
+   */
+  const formIsValid = () => {
+    const rowFields = Array.from(itemsEl.querySelectorAll('[data-f]')).map((i) => i._field);
+    const { ok, first } = validateAll([...fields, ...rowFields]);
+    if (!ok) {
+      focusInvalid(first);
+      toast(first.rule.check(String(first.input.value ?? '').trim()), { kind: 'error', duration: 4500 });
+      return false;
+    }
+    if (draft.items.every(isBlankItem)) {
+      toast('Add at least one line before saving.', { kind: 'error' });
+      itemsEl.querySelector('[data-f="desc"]')?.focus();
+      return false;
+    }
+    return true;
+  };
+
   const doSave = async () => {
+    if (!formIsValid()) return null;
     try {
       const { invoice } = await saveInvoice(draft);
       dirty = false;

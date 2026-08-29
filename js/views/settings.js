@@ -12,13 +12,26 @@ import {
   actionSheet, alertDialog, canPickDirectory, confirmDialog, debounce, esc,
   html, pickFile, raw, toast, todayISO,
 } from '../util.js';
-import { applyTheme } from '../theme.js';
+import { applyTheme, onThemeChange, THEMES } from '../theme.js';
+import { attachField, intRange, requiredText, RULES } from '../validate.js';
+import { ACCEPTED, processLogo } from '../logo.js';
 
-const THEMES = [
-  { key: 'system', label: 'System' },
-  { key: 'light', label: 'Light' },
-  { key: 'dark', label: 'Dark' },
-];
+/* Which rule guards which setting. Anything not listed takes what is typed. */
+const FIELD_RULES = {
+  'business.name': requiredText('Business name', 60),
+  'business.tagline': RULES.text,
+  'business.address': RULES.text,
+  'business.mobile': RULES.phone,
+  'business.office': RULES.phone,
+  'business.instagram': RULES.text,
+  'business.terms': RULES.text,
+  'challan.prefix': RULES.seriesPrefix,
+  'challan.padding': intRange(1, 8, 'Digits'),
+  'challan.start': intRange(1, 999999, 'The starting number'),
+  'pdf.minRows': intRange(6, 30, 'Blank rows'),
+  'pdf.filenamePattern': RULES.filename,
+  'ui.currency': RULES.currencySymbol,
+};
 const RESET_POLICIES = [
   { key: 'never', label: 'Never — one running series' },
   { key: 'fy', label: 'Every financial year (1 April)' },
@@ -59,14 +72,32 @@ export async function render(root, { settings, navigate, setTopbar, reload }) {
             <textarea id="s-address" class="textarea" data-s="business.address">${biz.address}</textarea></div>
           <div class="grid-3">
             <div class="field"><label for="s-mobile">Mobile</label>
-              <input id="s-mobile" class="input" inputmode="tel" value="${biz.mobile}" data-s="business.mobile"></div>
+              <input id="s-mobile" class="input" type="tel" inputmode="tel" value="${biz.mobile}" data-s="business.mobile"></div>
             <div class="field"><label for="s-office">Office</label>
-              <input id="s-office" class="input" inputmode="tel" value="${biz.office}" data-s="business.office"></div>
+              <input id="s-office" class="input" type="tel" inputmode="tel" value="${biz.office}" data-s="business.office"></div>
             <div class="field"><label for="s-insta">Instagram</label>
               <input id="s-insta" class="input" value="${biz.instagram}" data-s="business.instagram"></div>
           </div>
           <div class="field"><label for="s-terms">Terms printed on the challan</label>
             <textarea id="s-terms" class="textarea" data-s="business.terms">${biz.terms}</textarea></div>
+
+          <div class="pref-row">
+            <div class="logo-slot" id="logo-preview">
+              ${biz.logo?.dataUrl
+                ? raw(`<img src="${esc(biz.logo.dataUrl)}" alt="Your logo">`)
+                : raw('<span class="logo-slot__empty">No logo</span>')}
+            </div>
+            <div class="pref-row__main">
+              <strong>Logo</strong>
+              <small id="logo-hint">${biz.logo
+                ? `Printed at the top of every challan · ${Math.round((biz.logo.bytes || 0) / 1024)} KB`
+                : 'Printed at the top of every challan. Black and white works best.'}</small>
+            </div>
+            <div class="row">
+              <button type="button" class="btn btn--sm" id="logo-pick">${biz.logo ? 'Replace' : 'Upload'}</button>
+              <button type="button" class="btn btn--sm btn--ghost" id="logo-clear" ${raw(biz.logo ? '' : 'hidden')}>Remove</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -183,7 +214,10 @@ export async function render(root, { settings, navigate, setTopbar, reload }) {
               <strong>Currency symbol</strong>
               <small>Shown in the app. PDFs print plain numbers, like the book.</small>
             </div>
-            <input class="input" style="width:90px" value="${settings.ui.currency}" data-s="ui.currency" maxlength="3">
+            <div class="field" style="flex:none">
+              <input class="input" style="width:90px" value="${settings.ui.currency}" data-s="ui.currency"
+                     maxlength="3" aria-label="Currency symbol">
+            </div>
           </div>
         </div>
       </div>
@@ -231,7 +265,7 @@ export async function render(root, { settings, navigate, setTopbar, reload }) {
       </div>
 
       <p class="field__hint" style="text-align:center">
-        9WERKS Invoice · works offline · nothing leaves this device
+        Challan Book · works offline · nothing leaves this device
       </p>
     </div>`;
 
@@ -273,20 +307,87 @@ export async function render(root, { settings, navigate, setTopbar, reload }) {
     const isCheck = node.type === 'checkbox';
     const isNumber = node.type === 'number';
     const evt = isCheck || node.tagName === 'SELECT' ? 'change' : 'input';
+    const rule = FIELD_RULES[path];
+
+    // Attached first, so the value this handler reads is already sanitised.
+    const field = rule ? attachField(node, rule) : null;
+
     node.addEventListener(evt, () => {
+      // A half-typed or out-of-range value is shown as an error and simply
+      // not written — the stored setting stays as it was.
+      if (field && !field.validate()) return;
       const value = isCheck ? node.checked : isNumber ? Number(node.value) : node.value;
       persist(path, value);
     });
   });
 
+  /* ---------- logo ---------- */
+
+  const logoPreview = root.querySelector('#logo-preview');
+  const logoHint = root.querySelector('#logo-hint');
+  const logoPick = root.querySelector('#logo-pick');
+  const logoClear = root.querySelector('#logo-clear');
+
+  const paintLogo = (logo) => {
+    logoPreview.innerHTML = logo
+      ? `<img src="${esc(logo.dataUrl)}" alt="Your logo">`
+      : '<span class="logo-slot__empty">No logo</span>';
+    logoHint.textContent = logo
+      ? `Printed at the top of every challan · ${fmtBytes(logo.bytes)}`
+      : 'Printed at the top of every challan. Black and white works best.';
+    logoPick.textContent = logo ? 'Replace' : 'Upload';
+    logoClear.hidden = !logo;
+  };
+
+  logoPick.addEventListener('click', async () => {
+    const file = await pickFile(ACCEPTED);
+    if (!file) return;
+    const original = logoPick.textContent;
+    logoPick.disabled = true;
+    logoPick.textContent = 'Reading…';
+    try {
+      const logo = await processLogo(file);
+      await saveSettings({ business: { logo } });
+      await logEvent(EVENT.SETTINGS, { meta: { path: 'business.logo' } });
+      paintLogo(logo);
+      toast('Logo saved — it will appear on your challans', { kind: 'good' });
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'That image could not be used.', { kind: 'error', duration: 5000 });
+      logoPick.textContent = original;
+    } finally {
+      logoPick.disabled = false;
+    }
+  });
+
+  logoClear.addEventListener('click', async () => {
+    await saveSettings({ business: { logo: null } });
+    await logEvent(EVENT.SETTINGS, { meta: { path: 'business.logo' } });
+    paintLogo(null);
+    toast('Logo removed', { kind: 'good' });
+  });
+
   /* ---------- theme & language ---------- */
 
-  root.querySelector('#theme').addEventListener('click', async (e) => {
+  const themeBox = root.querySelector('#theme');
+  const paintTheme = (theme) => {
+    themeBox.querySelectorAll('[data-theme]').forEach((b) => b.classList.toggle('is-active', b.dataset.theme === theme));
+  };
+
+  themeBox.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-theme]');
     if (!btn) return;
-    root.querySelectorAll('[data-theme]').forEach((b) => b.classList.toggle('is-active', b === btn));
+    paintTheme(btn.dataset.theme);
     applyTheme(btn.dataset.theme);
     await saveSettings({ ui: { theme: btn.dataset.theme } });
+  });
+
+  // The topbar toggle can change the theme while this screen is open.
+  // Views have no teardown hook, so the listener retires itself once the
+  // screen it belongs to has been swapped out.
+  const stopThemeSync = onThemeChange((theme) => {
+    if (!themeBox.isConnected) { stopThemeSync(); return; }
+    paintTheme(theme);
   });
 
   root.querySelector('#audit-lang').addEventListener('click', async (e) => {

@@ -1,8 +1,8 @@
 // Router + bootstrap. Views are lazy-loaded so the first paint stays quick.
 
-import { getSettings, openDB } from './store.js';
+import { getSettings, openDB, saveSettings } from './store.js';
 import { esc, html, qs, qsa, raw, toast } from './util.js';
-import { applyTheme } from './theme.js';
+import { applyTheme, flipTheme, onThemeChange } from './theme.js';
 
 const ROUTES = [
   { pattern: /^#?\/?$/,                        view: 'list',      nav: 'invoices' },
@@ -30,6 +30,7 @@ const titleEl = qs('#topbar-title');
 const subEl = qs('#topbar-sub');
 const actionsEl = qs('#topbar-actions');
 const backBtn = qs('#btn-back');
+const themeBtn = qs('#btn-theme');
 
 let guard = null;
 let suppressHashChange = false;
@@ -40,7 +41,7 @@ let renderToken = 0;
 function setTopbar({ title, sub = '', back = false, actions = [] }) {
   titleEl.textContent = title;
   subEl.textContent = sub;
-  document.title = title === 'Challans' ? '9WERKS Invoice' : `${title} · 9WERKS`;
+  document.title = title === 'Challans' ? 'Challan Book' : `${title} · Challan Book`;
   backBtn.hidden = !back;
   actionsEl.innerHTML = actions
     .map((a) => html`<button class="icon-btn" data-topbar-action="${a.id}" aria-label="${a.label}">
@@ -161,6 +162,29 @@ window.addEventListener('beforeunload', (e) => {
   if (!guard) return;
   e.preventDefault();
   e.returnValue = '';
+});
+
+/* ---------------- theme toggle ---------------- */
+
+const SUN_ICON = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.3M12 19.5v2.3M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.2 12h2.3M19.5 12h2.3M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>';
+const MOON_ICON = '<path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z"/>';
+
+// The button always offers the other skin, so one tap flips light <-> dark
+// even when the preference is still following the system.
+let themePref = 'system';
+
+onThemeChange((theme) => {
+  themePref = theme;
+  const next = flipTheme(theme);
+  themeBtn.querySelector('[data-theme-icon]').innerHTML = next === 'dark' ? MOON_ICON : SUN_ICON;
+  themeBtn.setAttribute('aria-label', next === 'dark' ? 'Switch to dark theme' : 'Switch to light theme');
+  themeBtn.title = next === 'dark' ? 'Dark theme' : 'Light theme';
+});
+
+themeBtn.addEventListener('click', async () => {
+  const next = flipTheme(themePref);
+  applyTheme(next);
+  await saveSettings({ ui: { theme: next } });
 });
 
 /* ---------------- chrome ---------------- */

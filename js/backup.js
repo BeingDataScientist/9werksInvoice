@@ -69,7 +69,7 @@ export async function buildBackupZip({ lang = 'en' } = {}) {
   const exportedAt = Date.now();
   const manifest = {
     app: APP_ID,
-    appName: '9WERKS Invoice',
+    appName: 'Challan Book',
     backupVersion: BACKUP_VERSION,
     schemaVersion: settings.schemaVersion || 1,
     exportedAt,
@@ -109,7 +109,7 @@ export async function buildBackupZip({ lang = 'en' } = {}) {
   readable.file(
     `history-${lang}.txt`,
     [
-      `${settings.business.name} — full history (${auditLangName(lang)})`,
+      `${settings.business.name || 'Challan Book'} — full history (${auditLangName(lang)})`,
       `Generated ${fmtDateTime(exportedAt)}`,
       `${audit.length} entries`,
       ''.padEnd(60, '-'),
@@ -120,7 +120,7 @@ export async function buildBackupZip({ lang = 'en' } = {}) {
 
   const active = invoices.filter((i) => !i.deletedAt);
   readable.file('README.txt', [
-    `${settings.business.name} — data backup`,
+    `${settings.business.name || 'Challan Book'} — data backup`,
     ''.padEnd(60, '='),
     '',
     `Taken on : ${fmtDateTime(exportedAt)}`,
@@ -147,7 +147,7 @@ export async function buildBackupZip({ lang = 'en' } = {}) {
 export function backupFilename(settings, when = new Date()) {
   const stamp = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`;
   const time = `${String(when.getHours()).padStart(2, '0')}${String(when.getMinutes()).padStart(2, '0')}`;
-  const name = String(settings.business?.name || 'werks').replace(/[^\w-]+/g, '');
+  const name = String(settings.business?.name || 'challan-book').replace(/[^\w-]+/g, '');
   return `${name}-backup-${stamp}-${time}.zip`;
 }
 
@@ -191,7 +191,7 @@ export async function inspectBackup(file) {
   const zip = await JSZip.loadAsync(file);
   const manifest = await readJson(zip, 'manifest.json');
   if (!manifest || manifest.app !== APP_ID) {
-    throw new Error('This does not look like a 9WERKS backup file.');
+    throw new Error('This does not look like a Challan Book backup file.');
   }
   if ((manifest.backupVersion || 1) > BACKUP_VERSION) {
     throw new Error('This backup was made by a newer version of the app. Update the app first.');

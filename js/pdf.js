@@ -1,10 +1,11 @@
-// Vector PDF of the challan, laid out to match the printed 9WERKS book.
+// Vector PDF of the challan, laid out like a printed challan book.
 //
 // Note on glyphs: jsPDF's built-in fonts are WinAnsi-encoded, which has no ₹
 // and no Devanagari. Amounts are therefore printed as bare numbers — exactly
 // like the paper book — and "Rs." is used where a currency word is needed.
 
 import { fmtDate, num, saveBlob, shareFile } from './util.js';
+import { fitLogo } from './logo.js';
 
 const PAGE = {
   a5: { w: 148, h: 210 },
@@ -78,20 +79,23 @@ function makeCtx(doc, k) {
   return ctx;
 }
 
-/** The alloy-wheel mark, same geometry as the app icon. */
-function drawLogo(ctx, cx, cy, r) {
-  const { doc } = ctx;
-  doc.setDrawColor(0);
-  doc.setFillColor(0);
-  doc.setLineWidth(r * 0.28);
-  doc.circle(cx, cy, r * 0.82, 'S');
-  doc.setLineWidth(r * 0.2);
-  for (let i = 0; i < 6; i++) {
-    const a = (i * Math.PI) / 3 + 0.45;
-    doc.line(cx + Math.cos(a) * r * 0.22, cy + Math.sin(a) * r * 0.22,
-             cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62);
+/**
+ * Place the shop's uploaded logo, fitted into a box and left-aligned within it.
+ * Returns the width actually used, so callers can lay text out beside it.
+ * With no logo uploaded this draws nothing and returns 0 — there is no stand-in
+ * mark, because a generic glyph on someone's invoice is worse than none.
+ */
+function drawLogo(ctx, logo, x, y, maxW, maxH) {
+  if (!logo?.dataUrl) return 0;
+  const { w, h } = fitLogo(logo, maxW, maxH);
+  try {
+    ctx.doc.addImage(logo.dataUrl, logo.format || 'PNG', x, y + (maxH - h) / 2, w, h);
+    return w;
+  } catch (err) {
+    // A corrupt data URL must not take the whole challan down.
+    console.warn('Logo could not be drawn', err);
+    return 0;
   }
-  doc.circle(cx, cy, r * 0.2, 'F');
 }
 
 function drawCheckbox(ctx, x, y, size, checked) {
@@ -117,21 +121,33 @@ function drawHeader(ctx, x, y, w, biz) {
   ctx.rect(tagX, y + 1.2 * k, tagW, tagH, 0.35);
   ctx.text('INVOICE', x + w / 2, y + 1.2 * k + tagH * 0.72, { size: 7, style: 'bold', align: 'center' });
 
-  // Contact block, top right.
+  // Contact block, top right. Each line only appears if it was filled in, so a
+  // shop that gave no landline doesn't print a bare "Office:".
   const cx = x + w - 1.6 * k;
-  ctx.text(`Mob:${biz.mobile || ''}`, cx, y + 3.2 * k, { size: 6.6, style: 'bold', align: 'right' });
-  ctx.text(`Office:${biz.office || ''}`, cx, y + 6 * k, { size: 6.6, style: 'bold', align: 'right' });
-  if (biz.instagram) ctx.text(`@${biz.instagram}`, cx, y + 8.8 * k, { size: 6.6, style: 'bold', align: 'right' });
+  const contacts = [
+    biz.mobile && `Mob:${biz.mobile}`,
+    biz.office && `Office:${biz.office}`,
+    biz.instagram && `@${biz.instagram}`,
+  ].filter(Boolean);
+  contacts.forEach((line, i) => {
+    ctx.text(line, cx, y + (3.2 + i * 2.8) * k, { size: 6.6, style: 'bold', align: 'right' });
+  });
 
-  // Wordmark with the wheel to its left.
+  // Name, with the uploaded logo to its left. The pair is centred as a group,
+  // and either half may be absent.
   const nameSize = 21;
-  const nameW = ctx.width(biz.name || '9WERKS', nameSize, 'bold');
-  const logoR = 4.4 * k;
-  const groupW = logoR * 2 + 1.5 * k + nameW;
+  const name = biz.name || '';
+  const nameW = name ? ctx.width(name, nameSize, 'bold') : 0;
+  const logoMaxW = 22 * k;
+  const logoMaxH = 9.5 * k;
+  const logoW = biz.logo?.dataUrl ? fitLogo(biz.logo, logoMaxW, logoMaxH).w : 0;
+  const gap = logoW && nameW ? 2 * k : 0;
+  const groupW = logoW + gap + nameW;
   const gx = x + w / 2 - groupW / 2;
   const baseY = y + 14.6 * k;
-  drawLogo(ctx, gx + logoR, baseY - 3.4 * k, logoR);
-  ctx.text(biz.name || '9WERKS', gx + logoR * 2 + 1.5 * k, baseY, { size: nameSize, style: 'bold' });
+
+  if (logoW) drawLogo(ctx, biz.logo, gx, baseY - logoMaxH, logoMaxW, logoMaxH);
+  if (name) ctx.text(name, gx + logoW + gap, baseY, { size: nameSize, style: 'bold' });
 
   if (biz.tagline) {
     ctx.text(biz.tagline.toUpperCase(), x + w / 2, y + 18.4 * k, { size: 6.4, align: 'center', maxWidth: w - 6 * k });
@@ -307,14 +323,20 @@ function drawFooter(ctx, x, y, w, h, invoice, biz) {
     drawCheckbox(ctx, bx + lw, by, box, selected === label.toLowerCase());
   });
 
-  // Authorised signatory.
+  // Authorised signatory, with the same logo reduced.
   const rcx = (c2 + x + w) / 2;
-  const logoR = 2.6 * k;
-  const nameW = ctx.width(biz.name || '9WERKS', 10.5, 'bold');
-  const gx = rcx - (logoR * 2 + 1 * k + nameW) / 2;
-  drawLogo(ctx, gx + logoR, y + 4.6 * k, logoR);
-  ctx.text(biz.name || '9WERKS', gx + logoR * 2 + 1 * k, y + 6 * k, { size: 10.5, style: 'bold' });
-  if (biz.tagline) ctx.text(biz.tagline.toUpperCase(), rcx, y + 8.8 * k, { size: 4.4, align: 'center', maxWidth: (x + w - c2) - 2 * k });
+  const signW = (x + w - c2) - 3 * k;
+  const name = biz.name || '';
+  const nameW = name ? ctx.width(name, 10.5, 'bold') : 0;
+  const logoMaxW = Math.min(13 * k, signW);
+  const logoMaxH = 5.4 * k;
+  const logoW = biz.logo?.dataUrl ? fitLogo(biz.logo, logoMaxW, logoMaxH).w : 0;
+  const gap = logoW && nameW ? 1 * k : 0;
+  const gx = rcx - (logoW + gap + nameW) / 2;
+
+  if (logoW) drawLogo(ctx, biz.logo, gx, y + 2.2 * k, logoMaxW, logoMaxH);
+  if (name) ctx.text(name, gx + logoW + gap, y + 6 * k, { size: 10.5, style: 'bold', maxWidth: signW });
+  if (biz.tagline) ctx.text(biz.tagline.toUpperCase(), rcx, y + 8.8 * k, { size: 4.4, align: 'center', maxWidth: signW });
   ctx.text('Authorised Signatory', rcx, y + h - 2.4 * k, { size: 6.8, style: 'bold', align: 'center' });
 }
 
@@ -396,9 +418,9 @@ export function buildInvoicePDF(invoice, settings) {
 
   doc.setProperties({
     title: `Challan ${invoice.challanNo || ''}`,
-    subject: `${biz.name} challan`,
-    author: biz.name,
-    creator: `${biz.name} Invoice PWA`,
+    subject: `${biz.name || 'Challan'}`,
+    author: biz.name || '',
+    creator: 'Challan Book',
   });
 
   return doc;

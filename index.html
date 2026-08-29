@@ -1,14 +1,27 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>9WERKS Invoice</title>
-<meta name="description" content="Offline challan & invoice book for 9WERKS.">
-<meta name="theme-color" content="#0f1115">
+<title>Challan Book</title>
+<meta name="description" content="Offline challan and invoice book that keeps all data on your device.">
+<meta name="theme-color" content="#ece5d5">
+<script>
+  /* First paint has to land on the right skin. The chosen theme lives in
+     IndexedDB with the rest of the settings, which is async, so js/theme.js
+     mirrors it into localStorage for this one synchronous read. */
+  (function () {
+    try {
+      var t = localStorage.getItem('werks:theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.querySelector('meta[name="theme-color"]').content = dark ? '#0f1115' : '#ece5d5';
+    } catch (e) { /* private browsing blocks storage; the module sorts it out */ }
+  })();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="9WERKS">
+<meta name="apple-mobile-web-app-title" content="Challans">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -37,10 +50,13 @@
       </span>
       <span class="topbar__titles">
         <strong id="topbar-title">Challans</strong>
-        <small id="topbar-sub">9WERKS</small>
+        <small id="topbar-sub"></small>
       </span>
     </div>
     <div class="topbar__actions" id="topbar-actions"></div>
+    <button class="icon-btn" id="btn-theme" type="button" aria-label="Switch theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true" data-theme-icon></svg>
+    </button>
   </header>
 
   <nav class="rail" aria-label="Main">
