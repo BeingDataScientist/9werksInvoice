@@ -7,3 +7,6 @@ desktop.ini
 
 # local tooling, not part of the app
 tools/cloudflared.exe
+
+# design reference, kept locally only
+Reference invoice image.jpeg
