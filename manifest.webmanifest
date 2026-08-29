@@ -1,0 +1,25 @@
+{
+  "name": "9WERKS Invoice",
+  "short_name": "9WERKS",
+  "description": "Offline challan & invoice book for 9WERKS - create, edit, audit and analyse job cards on your phone.",
+  "id": "/9werksInvoice/",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "categories": ["business", "productivity", "finance"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New challan", "short_name": "New", "url": "#/invoice/new", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Analytics", "short_name": "Analytics", "url": "#/analytics", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

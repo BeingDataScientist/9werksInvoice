@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>9WERKS Invoice</title>
+<meta name="description" content="Offline challan & invoice book for 9WERKS.">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="9WERKS">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="topbar" id="topbar">
+    <button class="icon-btn topbar__back" id="btn-back" hidden aria-label="Go back">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="topbar__brand">
+      <span class="brand-mark" aria-hidden="true">
+        <!-- same alloy-wheel mark as the app icon and the PDF letterhead -->
+        <svg viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r="13" fill="none" stroke="currentColor" stroke-width="4.3"/>
+          <g stroke="currentColor" stroke-width="2.9" stroke-linecap="butt">
+            <path d="M33.3 28.5L14.7 19.5"/>
+            <path d="M24.8 34.3L23.2 13.7"/>
+            <path d="M15.5 29.8L32.5 18.2"/>
+          </g>
+          <circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <span class="topbar__titles">
+        <strong id="topbar-title">Challans</strong>
+        <small id="topbar-sub">9WERKS</small>
+      </span>
+    </div>
+    <div class="topbar__actions" id="topbar-actions"></div>
+  </header>
+
+  <nav class="rail" aria-label="Main">
+    <a class="rail__item" href="#/invoices" data-nav="invoices">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 16h5"/></svg>
+      <span>Challans</span>
+    </a>
+    <a class="rail__item" href="#/invoice/new" data-nav="new">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>New</span>
+    </a>
+    <a class="rail__item" href="#/analytics" data-nav="analytics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Analytics</span>
+    </a>
+    <a class="rail__item" href="#/history" data-nav="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5l3 2"/><path d="M3.5 12a8.5 8.5 0 1 0 2.2-5.7"/><path d="M3 4v4h4"/></svg>
+      <span>History</span>
+    </a>
+    <a class="rail__item" href="#/settings" data-nav="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3l1.2 2.6 2.8-.6.5 2.8 2.6 1.2-1.6 2.4 1.6 2.4-2.6 1.2-.5 2.8-2.8-.6L12 21l-1.2-2.6-2.8.6-.5-2.8L4.9 15l1.6-2.4L4.9 10l2.6-1.2.5-2.8 2.8.6z"/></svg>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <main class="view" id="view" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a class="tabbar__item" href="#/invoices" data-nav="invoices">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 16h5"/></svg>
+      <span>Challans</span>
+    </a>
+    <a class="tabbar__item" href="#/analytics" data-nav="analytics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Analytics</span>
+    </a>
+    <a class="tabbar__item tabbar__item--fab" href="#/invoice/new" data-nav="new" aria-label="New challan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
+    <a class="tabbar__item" href="#/history" data-nav="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5l3 2"/><path d="M3.5 12a8.5 8.5 0 1 0 2.2-5.7"/><path d="M3 4v4h4"/></svg>
+      <span>History</span>
+    </a>
+    <a class="tabbar__item" href="#/settings" data-nav="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3l1.2 2.6 2.8-.6.5 2.8 2.6 1.2-1.6 2.4 1.6 2.4-2.6 1.2-.5 2.8-2.8-.6L12 21l-1.2-2.6-2.8.6-.5-2.8L4.9 15l1.6-2.4L4.9 10l2.6-1.2.5-2.8 2.8.6z"/></svg>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+</div>
+
+<div id="toast-host" class="toast-host" role="status" aria-live="polite"></div>
+<div id="modal-host" class="modal-host" hidden></div>
+<div id="sheet-host" class="sheet-host" hidden></div>
+
+<script src="vendor/jspdf.umd.min.js" defer></script>
+<script src="vendor/jszip.min.js" defer></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
