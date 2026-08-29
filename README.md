@@ -1,16 +1,28 @@
-# 9WERKS Invoice
+# Challan Book
 
-An offline-first Progressive Web App that replaces the paper challan book at
-9WERKS. Create, view and edit challans on the phone; every change is written to
-a plain-language audit trail; challans print to a PDF laid out like the printed
-book; and everything is stored on the device — nothing is uploaded anywhere.
+An offline-first Progressive Web App that replaces a paper challan book. Create,
+view and edit challans on the phone; every change is written to a plain-language
+audit trail; challans print to a PDF laid out like the printed book; and
+everything is stored on the device — nothing is uploaded anywhere.
 
-Built from the shop's own challan book, so the PDF keeps the same fields and the
-same shape as the paper form.
+**Install it:** <https://beingdatascientist.github.io/9werksInvoice/> — open on a
+phone, then *browser menu → Install app / Add to Home Screen*.
+
+The app ships with no business details of its own. Each shop enters its own
+name, address, contacts, terms and logo under Settings, and those are what
+appear on its challans.
 
 ---
 
 ## What it does
+
+**Your shop**
+- Name, tagline, address, phone numbers and terms are entered under Settings —
+  nothing is pre-filled, and a first-run prompt points the way there.
+- Upload a logo and it is downscaled, flattened onto white and converted to
+  grey, then printed at the top of every challan and beside the signature.
+  Challans are black-and-white documents, so that is what the logo becomes.
+- The logo is stored with the settings, so it travels inside a backup.
 
 **Challans**
 - Create, view and edit challans with the same fields as the book — To/M/s.,
@@ -107,11 +119,12 @@ testing that is fine; before entering anything you want to keep, either deploy
 to a fixed URL (below) or take a backup (Settings → *Back up now*) and restore
 it on the new link.
 
-### Deploying to GitHub Pages
+### GitHub Pages
 
-Settings → Pages → Source: *Deploy from a branch* → `main` / `/ (root)`.
-The app is then served over HTTPS and installs to the home screen from the
-browser menu ("Install app" / "Add to Home Screen").
+Already enabled, serving `main` from `/` at
+<https://beingdatascientist.github.io/9werksInvoice/>. Pushing to `main`
+redeploys within a minute or two; bump `VERSION` in `sw.js` so installed copies
+pick the change up.
 
 ---
 
@@ -144,9 +157,12 @@ js/
   charts.js             small SVG charts
   ac.js                 type-ahead component
   theme.js              light/dark
+  logo.js               shop logo: downscale, flatten, greyscale
+  validate.js           field sanitising and validation
   views/                list, detail, editor, analytics, history, settings
 vendor/                 jsPDF + JSZip, vendored so the app works offline
 tools/serve.mjs         zero-dependency dev server
+tools/tunnel.mjs        serve + HTTPS tunnel for phone testing
 ```
 
 ### Notes for future edits
