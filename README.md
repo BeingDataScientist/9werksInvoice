@@ -84,10 +84,28 @@ work from `file://`).
 node tools/serve.mjs          # http://localhost:5173
 ```
 
-To use it on your phone on the same Wi-Fi, find this machine's LAN IP
-(`ipconfig`) and open `http://<that-ip>:5173`. Note that installing as an app
-and choosing a save folder need a secure origin — `localhost` counts, a bare LAN
-IP does not, so for real phone use deploy it (below) or use a tunnel.
+### On a phone
+
+Quick look, same Wi-Fi — find this machine's LAN IP (`ipconfig`) and open
+`http://<that-ip>:5173`. Everything works except the parts browsers gate behind
+a "secure origin": offline mode, home-screen install, the folder picker and the
+share sheet. A bare LAN IP is not a secure origin; `localhost` and `https://` are.
+
+Full PWA, including install and offline:
+
+```bash
+node tools/tunnel.mjs         # prints an https://…trycloudflare.com link
+```
+
+Open that link on the phone, then *browser menu → Install app*. Needs
+`tools/cloudflared.exe` once — the script prints the download URL if it is
+missing.
+
+**The tunnel URL changes every run.** Browsers key stored data to the URL, so
+challans saved under one link do not appear under the next one. For throwaway
+testing that is fine; before entering anything you want to keep, either deploy
+to a fixed URL (below) or take a backup (Settings → *Back up now*) and restore
+it on the new link.
 
 ### Deploying to GitHub Pages
 

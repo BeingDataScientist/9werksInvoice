@@ -4,3 +4,6 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# local tooling, not part of the app
+tools/cloudflared.exe
